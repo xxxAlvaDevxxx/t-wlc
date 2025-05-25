@@ -16,10 +16,13 @@ func TestDefaultTwlc(t *testing.T) {
 	if twlc.ColorMessages != true {
 		t.Errorf("Expected ColorMessages to be true, got %v", twlc.ColorMessages)
 	}
-	if twlc.LogDir == "" {
-		t.Errorf("Expected LogDir to be non-empty, got %s", twlc.LogDir)
+	if twlc.BGColor != true {
+		t.Errorf("Expected BGColor to be true, got %v", twlc.BGColor)
 	}
-	if twlc.WithTime != false {
+	if twlc.FGColor != true {
+		t.Errorf("Expected FGColor to be true, got %v", twlc.FGColor)
+	}
+	if twlc.WithTime != true {
 		t.Errorf("Expected WithTime to be true, got %v", twlc.WithTime)
 	}
 
@@ -31,21 +34,27 @@ func TestDefaultTwlc(t *testing.T) {
 }
 
 func TestNewTwlc(t *testing.T) {
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
+	twlc := NewTwlc(true, true, true, true, true, true, "./test_logs/")
 	if twlc.SaveInLogFile != true {
 		t.Errorf("Expected SaveInLogFile to be true, got %v", twlc.SaveInLogFile)
 	}
 	if twlc.ShowInConsole != true {
 		t.Errorf("Expected ShowInConsole to be true, got %v", twlc.ShowInConsole)
 	}
-	if twlc.LogDir != "./test_logs/" {
-		t.Errorf("Expected LogDir to be /tmp/test_logs/, got %s", twlc.LogDir)
+	if twlc.ColorMessages != true {
+		t.Errorf("Expected ColorMessages to be true, got %v", twlc.ColorMessages)
+	}
+	if twlc.BGColor != true {
+		t.Errorf("Expected BGColor to be true, got %v", twlc.BGColor)
+	}
+	if twlc.FGColor != true {
+		t.Errorf("Expected FGColor to be true, got %v", twlc.FGColor)
 	}
 	if twlc.WithTime != true {
 		t.Errorf("Expected WithTime to be true, got %v", twlc.WithTime)
 	}
-	if twlc.ColorMessages != true {
-		t.Errorf("Expected ColorMessages to be true, got %v", twlc.ColorMessages)
+	if twlc.LogDir != "./test_logs/" {
+		t.Errorf("Expected LogDir to be './test_logs/', got %s", twlc.LogDir)
 	}
 
 	// Check if the log directory was created
@@ -63,13 +72,11 @@ func TestNewTwlc(t *testing.T) {
 }
 
 func TestWriteLog(t *testing.T) {
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
-	message := "Test message"
-	twlc.WriteLog(Info, message)
+	twlc := DefaultTwlc()
+	twlc.WriteLog("LOG", "Test message")
 
 	// Check if the log file was created
-	logFilePath := twlc.LogDir + "log.txt"
-	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+	if _, err := os.Stat(twlc.LogFilePath); os.IsNotExist(err) {
 		t.Errorf("Expected log file to exist, got %v", err)
 	}
 
@@ -81,7 +88,7 @@ func TestWriteLog(t *testing.T) {
 }
 
 func TestWriteConstants(t *testing.T) {
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
+	twlc := DefaultTwlc()
 	twlc.WriteInfo(Info)
 	twlc.WriteSuccess(Success)
 	twlc.WriteError(Error)
@@ -90,8 +97,7 @@ func TestWriteConstants(t *testing.T) {
 	twlc.WriteTrace(Trace)
 
 	// Check if the log file was created
-	logFilePath := twlc.LogDir + "log.txt"
-	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+	if _, err := os.Stat(twlc.LogFilePath); os.IsNotExist(err) {
 		t.Errorf("Expected log file to exist, got %v", err)
 	}
 	// Clean up
@@ -114,19 +120,19 @@ func TestSetColor(t *testing.T) {
 		{Trace, "\033[36mTest message\033[0m"},
 	}
 
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
+	twlc := DefaultTwlc()
 
 	for _, c := range cases {
-		result := twlc.setColor(c.messageType, "Test message")
-		if result != c.expected {
-			t.Errorf("Expected %s, got %s", c.expected, result)
+		_, message := twlc.setColor(c.messageType, "Test message")
+		if message != c.expected {
+			t.Errorf("Expected %s, got %s", c.expected, message)
 		}
 
 	}
 
 	// Test with an unknown message type
 	unknownMessageType := "Unknown"
-	unknownMessage := twlc.setColor(unknownMessageType, "Test message")
+	_, unknownMessage := twlc.setColor(unknownMessageType, "Test message")
 	if unknownMessage != "Test message" {
 		t.Errorf("Expected 'Test message', got %s", unknownMessage)
 	}
@@ -154,7 +160,7 @@ func TestStructToString(t *testing.T) {
 		{Animal{"Cat", 3}, "{Name:Cat Age:3}", true},
 		{Animal{"Dog", 5}, `twlc.Animal{Name:"Dog", Age:5}`, false},
 	}
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
+	twlc := DefaultTwlc()
 	for _, c := range cases {
 		result := twlc.StructToString(c.input, c.simple)
 		if result != c.expected {
@@ -190,7 +196,7 @@ func TestStructToJson(t *testing.T) {
 }`},
 	}
 
-	twlc := NewTwlc(true, true, true, true, "./test_logs/")
+	twlc := DefaultTwlc()
 	for _, c := range cases {
 		result, err := twlc.StructToJson(c.input)
 		if err != nil {
@@ -200,6 +206,81 @@ func TestStructToJson(t *testing.T) {
 			t.Errorf("Expected %s, got %s", c.expected, result)
 		}
 	}
+
+	// Clean up
+	err := os.RemoveAll(twlc.LogDir)
+	if err != nil {
+		t.Errorf("Failed to remove log directory: %v", err)
+	}
+}
+
+func TestCreateLogDir(t *testing.T) {
+	inputDir := "./test_logs/"
+
+	createLogDir(inputDir)
+
+	_, err := os.Stat(inputDir)
+	if os.IsNotExist(err) {
+		t.Errorf("Expected log directory to exist, got %v", err)
+	}
+
+	// Clean up
+	err = os.RemoveAll(inputDir)
+	if err != nil {
+		t.Errorf("Failed to remove log directory: %v", err)
+	}
+}
+
+func TestCreateLogFile(t *testing.T) {
+	inputDir := "./test_logs/"
+
+	twlc := NewTwlc(true, true, true, true, true, true, inputDir)
+	twlc.LogFilePath = inputDir + "test_log.log"
+
+	twlc.createLogFile()
+
+	_, err := os.Stat(twlc.LogFilePath)
+	if os.IsNotExist(err) {
+		t.Errorf("Expected log file to exist, got %v", err)
+	}
+
+	// Clean up
+	err = os.RemoveAll(inputDir)
+	if err != nil {
+		t.Errorf("Failed to remove log directory: %v", err)
+	}
+}
+
+func TestWriteLogWithOutTime(t *testing.T) {
+	inputDir := "./test_logs/"
+
+	twlc := NewTwlc(true, true, true, true, true, false, inputDir)
+	twlc.LogFilePath = inputDir + "test_log.log"
+
+	twlc.WriteLog(Info, "Test message")
+
+	_, err := os.Stat(twlc.LogFilePath)
+	if os.IsNotExist(err) {
+		t.Errorf("Expected log file to exist, got %v", err)
+	}
+
+	// Clean up
+	err = os.RemoveAll(inputDir)
+	if err != nil {
+		t.Errorf("Failed to remove log directory: %v", err)
+	}
+}
+
+func TestBGandFGColor(t *testing.T) {
+	twlc := DefaultTwlc()
+
+	twlc.WriteInfo("Test message with background and foreground color")
+	twlc.BGColor = false
+	twlc.WriteInfo("Test message without background color and with foreground color")
+	twlc.FGColor = false
+	twlc.WriteInfo("Test message without background and foreground color")
+	twlc.BGColor = true
+	twlc.WriteInfo("Test message with background color and without foreground color")
 
 	// Clean up
 	err := os.RemoveAll(twlc.LogDir)
