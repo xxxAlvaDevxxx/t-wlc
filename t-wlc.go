@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -21,17 +22,21 @@ type Twlc struct {
 	SaveInLogFile bool
 	ShowInConsole bool
 	ColorMessages bool
+	BGColor       bool
+	FGColor       bool
 	WithTime      bool
 	LogDir        string
+	LogFilePath   string
 }
 
 func (t *Twlc) WriteLog(messageType string, message string) {
 	if t.SaveInLogFile {
-		logFilePath := filepath.Join(t.LogDir, "log.txt")
+		date := time.Now().Format("20060102")
+		t.LogFilePath = filepath.Join(t.LogDir, "twlc_"+date+".log")
 		// Create the log file if it doesn't exist
-		createLogFile(logFilePath)
+		t.createLogFile()
 		// Open the log file for appending
-		file, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		file, err := os.OpenFile(t.LogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open log file: %v", err)
 		}
@@ -45,7 +50,7 @@ func (t *Twlc) WriteLog(messageType string, message string) {
 	}
 
 	if t.ColorMessages {
-		message = t.setColor(messageType, message)
+		messageType, message = t.setColor(messageType, message)
 	}
 
 	if t.ShowInConsole {
@@ -57,25 +62,42 @@ func (t *Twlc) WriteLog(messageType string, message string) {
 	}
 }
 
-func (t *Twlc) setColor(messageType string, message string) string {
+func (t *Twlc) setColor(messageType string, message string) (string, string) {
+	saveMessageType := messageType
+	saveMessage := message
+
 	switch messageType {
 	case Info:
 		message = "\033[34m" + message + "\033[0m"
+		messageType = "\033[44;44m" + messageType + "\033[0m"
 	case Success:
 		message = "\033[32m" + message + "\033[0m"
+		messageType = "\033[42;32m" + messageType + "\033[0m"
 	case Warning:
 		message = "\033[33m" + message + "\033[0m"
+		messageType = "\033[43;33m" + messageType + "\033[0m"
 	case Error:
 		message = "\033[31m" + message + "\033[0m"
+		messageType = "\033[41;31m" + messageType + "\033[0m"
 	case Debug:
 		message = "\033[35m" + message + "\033[0m"
+		messageType = "\033[45;35m" + messageType + "\033[0m"
 	case Trace:
 		message = "\033[36m" + message + "\033[0m"
+		messageType = "\033[46;36m" + messageType + "\033[0m"
 	default:
-		return message
+		return messageType, message
 	}
 
-	return message
+	if !t.BGColor {
+		messageType = saveMessageType
+	}
+
+	if !t.FGColor {
+		message = saveMessage
+	}
+
+	return messageType, message
 }
 
 func (t *Twlc) WriteError(message string) {
@@ -132,7 +154,17 @@ func (t *Twlc) StructToJson(_struct interface{}) (string, error) {
 	return string(jsonData), nil
 }
 
-func NewTwlc(saveInLogFile, ShowInConsole, colorMessages, withTime bool, logDir string) *Twlc {
+func (t *Twlc) createLogFile() {
+	if _, err := os.Stat(t.LogFilePath); os.IsNotExist(err) {
+		file, err := os.Create(t.LogFilePath)
+		if err != nil {
+			log.Fatalf("Failed to create log file: %v", err)
+		}
+		file.Close()
+	}
+}
+
+func NewTwlc(saveInLogFile, ShowInConsole, colorMessages, bgColor, fgColor, withTime bool, logDir string) *Twlc {
 	createLogDir(logDir)
 
 	return &Twlc{
@@ -140,6 +172,8 @@ func NewTwlc(saveInLogFile, ShowInConsole, colorMessages, withTime bool, logDir 
 		ShowInConsole: ShowInConsole,
 		WithTime:      withTime,
 		ColorMessages: colorMessages,
+		BGColor:       bgColor,
+		FGColor:       fgColor,
 		LogDir:        logDir,
 	}
 }
@@ -156,7 +190,7 @@ func DefaultTwlc() *Twlc {
 
 	createLogDir(logDir)
 
-	return &Twlc{true, true, true, false, logDir}
+	return &Twlc{true, true, true, true, true, true, logDir, ""}
 }
 
 func createLogDir(logDir string) {
@@ -165,15 +199,5 @@ func createLogDir(logDir string) {
 		if err != nil {
 			log.Fatalf("Failed to create log directory: %v", err)
 		}
-	}
-}
-
-func createLogFile(logFilePath string) {
-	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
-		file, err := os.Create(logFilePath)
-		if err != nil {
-			log.Fatalf("Failed to create log file: %v", err)
-		}
-		file.Close()
 	}
 }
