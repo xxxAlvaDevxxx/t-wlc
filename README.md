@@ -1,4 +1,4 @@
-# TWLC - Tiny Writer Logger Console (Go)
+# TWLC - T Writer Logger Console (Go)
 
 `twlc` es un paquete de logging flexible y colorido para aplicaciones en Go, que permite mostrar mensajes en consola y/o guardarlos en archivos, con soporte para colores, etiquetas por tipo de mensaje, marcas de tiempo, y conversión de estructuras a texto o JSON.
 
