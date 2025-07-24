@@ -135,7 +135,7 @@ Los colores se muestran en consola si tu terminal soporta ANSI.
 package main
 
 import (
-    "github.com/tu_usuario/twlc"
+    "github.com/xxxAlvaDevxxx/twlc"
 )
 
 func main() {
